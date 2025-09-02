@@ -1,79 +1,25 @@
-export async function onRequest({ request }) {
+export async function onRequest() {
   try {
-    // 从请求URL中获取目标URL
-    const url = new URL(request.url);
-    const targetUrl = url.searchParams.get('url');
+    // 固定目标
+    const target = 'https://h5.lot-ml.com/ProductEn/Index/4388a5835e853d71';
+    const res    = await fetch(target);
+    const html   = await res.text();
 
-    // 检查是否提供了URL
-    if (!targetUrl) {
-      return new Response('缺少目标URL参数', {
-        status: 400,
-        headers: { 'Content-Type': 'text/plain; charset=UTF-8' }
-      });
-    }
+    // 抠出 <div id="new_box">
+    const m = html.match(/<div[^>]*\bid=['"]new_box['"][^>]*>([\s\S]*?)<\/div>/i);
+    const inner = m ? m[0] : '<p>抓取失败</p>';
 
-    // 记录请求信息
-    console.log(`代理请求: ${targetUrl}`);
-
-    // 构建请求头 - 转发部分原始请求头
-    const headers = new Headers();
-    const forwardHeaders = [
-      'user-agent',
-      'accept',
-      'accept-language',
-      'accept-encoding',
-      'content-type'
-    ];
-    
-    forwardHeaders.forEach(header => {
-      if (request.headers.get(header)) {
-        headers.set(header, request.headers.get(header));
-      }
-    });
-
-    // 请求目标网站
-    const targetRequest = new Request(targetUrl, {
-      method: request.method,
-      headers: headers,
-      body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.blob() : undefined,
-      redirect: 'follow',
-    });
-
-    // 发送请求并获取响应
-    const response = await fetch(targetRequest);
-
-    // 构建响应头
-    const responseHeaders = new Headers();
-    for (const [key, value] of response.headers.entries()) {
-      // 忽略某些响应头以避免冲突
-      if (!['content-encoding', 'content-length', 'connection'].includes(key.toLowerCase())) {
-        responseHeaders.set(key, value);
-      }
-    }
-
-    // 添加CORS头
-    responseHeaders.set('Access-Control-Allow-Origin', '*');
-    // 添加代理标识
-    responseHeaders.set('X-Proxied-By', 'EdgeOne-Pages-Proxy');
-
-    // 获取响应内容
-    const body = await response.arrayBuffer();
-
-    // 返回代理响应
-    return new Response(body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders
-    });
-  } catch (error) {
-    // 错误处理
-    console.error(`代理请求失败: ${error.message}`);
-    return new Response(`代理请求失败: ${error.message}`, {
-      status: 500,
+    return new Response(inner, {
+      status: 200,
       headers: {
-        'Content-Type': 'text/plain; charset=UTF-8',
+        'Content-Type': 'text/html;charset=utf-8',
         'Access-Control-Allow-Origin': '*'
       }
     });
+  } catch (e) {
+    return new Response('抓取失败: ' + e.message, {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
   }
-} 
+}
